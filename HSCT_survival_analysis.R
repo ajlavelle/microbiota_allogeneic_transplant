@@ -206,13 +206,13 @@ fit<- survfit(Surv(OS_months, OS_1_death, type = "right") ~ g__Candida.ASV.4, da
 ggsurvplot(fit, pval = TRUE, conf.int = TRUE, risk.table = TRUE, palette = c("red", "blue"))
 
 
-#agglomerate at species level
+#agglomerate at species level - set tax_level to genus
 surv.f.list <- binary_taxa_surv(ps.f.start, agglom = "Species", read_depth = 200, prev = 1, surv_cols = c("OS_months", "OS_1_death"), tax_level = "Genus")
 surv.f.bin <- surv.f.list$otus
 
 #evaluate Candida species
 surv.candida.bin <- surv.f.bin[,c(TRUE, TRUE, grepl("candida", ignore.case = T, surv.f.list$phyla), FALSE)]
-#filter Candida species >90% undeteced
+#filter Candida species >90% low - as median split => 0
 surv.candida.bin <- surv.candida.bin[,colSums(surv.candida.bin == "Low")/nrow(surv.candida.bin) <= 0.9]
 
 #univariate test
@@ -286,7 +286,7 @@ ggplot(DFS, aes(x=-1*log10(DFS_BH.adj),y=Variable, fill=Phylum)) + geom_bar(stat
   geom_vline(xintercept = -1*log10(0.1), colour="grey", lty=2) +
   geom_vline(xintercept = -1*log10(0.2), colour="grey") +
   xlab("-log10(FDR)") + ylab("Genus") + scale_fill_manual(values = c("darkorange","lightblue"), na.value="grey47") +
-  ggtitle("Log-rank test overall survival - fungal genera") + xlim(c(0,1.9))
+  ggtitle("Log-rank test disease-free survival - fungal genera") + xlim(c(0,1.9))
 
 ### Figure 2B
 #KM
@@ -296,7 +296,7 @@ ggsurvplot(fit, pval = TRUE, conf.int = TRUE, risk.table = TRUE, palette = c("re
 
 
 
-#GVHD-free, DFS
+#GVHD-free, RFS
 surv.f.list <- binary_taxa_surv(ps.f.start, agglom = "Genus", read_depth = 200, prev = 0.9, surv_cols = c("GVHD_free_relapse_free_time", "GVHD_free_relapse_free_survival"))
 surv.f.bin <- surv.f.list$otus
 #univariate
@@ -329,7 +329,7 @@ ggplot(GRFS, aes(x=-1*log10(GRFS_BH.adj),y=Variable, fill=Phylum)) + geom_bar(st
   geom_vline(xintercept = -1*log10(0.1), colour="grey", lty=2) +
   geom_vline(xintercept = -1*log10(0.2), colour="grey") +
   xlab("-log10(FDR)") + ylab("Genus") + scale_fill_manual(values = c("darkorange","lightblue"), na.value="grey47") +
-  ggtitle("Log-rank test overall survival - fungal genera") + xlim(c(0,1.9))
+  ggtitle("Log-rank test GVHD-free, relapse-free survival - fungal genera") + xlim(c(0,1.9))
 
 ### Figure 2D
 #GVHD-free,DRS
@@ -353,22 +353,9 @@ ggsurvplot(fit, pval = TRUE, conf.int = TRUE, risk.table = TRUE, palette = c("re
 ### Figure S3
 #include only samples with read counts of 10,000 and above
 
-#fungal
+#OS
 surv.f.list <- binary_taxa_surv(ps.f.start, agglom = "Species", read_depth = 10000, prev = 0.9, surv_cols = c("OS_months", "OS_1_death"))
 surv.f.bin <- surv.f.list$otus
-
-os.pvals <- c()
-for(i in 3:ncol(surv.f.bin)){
-  if(length(unique(surv.f.bin[,i])) > 1){
-    x <- survdiff(Surv(surv.f.bin[,1], surv.f.bin[,2], type = "right") ~ surv.f.bin[,i], data = surv.f.bin)
-    p_value <- 1 - pchisq(x$chisq, length(x$n) - 1)
-    os.pvals <- c(os.pvals, p_value)
-  }
-}
-
-OS.f.table <- data.frame(Variable = colnames(surv.f.bin)[3:ncol(surv.f.bin)], Phylum=c(surv.f.list$phyla,NA) , 
-                         OS_p.value = as.numeric(os.pvals), 
-                         OS_BH.adj = p.adjust(as.numeric(os.pvals), method = "fdr"))
 
 
 ### Figure S3A
@@ -383,40 +370,19 @@ dim(surv.f.bin)
 surv.f.list <- binary_taxa_surv(ps.f.start, agglom = "Species", read_depth = 10000, prev = 0.9, surv_cols = c("DFS_months", "DFS_1_relapse_or_death"))
 surv.f.bin <- surv.f.list$otus
 
-os.pvals <- c()
-for(i in 3:ncol(surv.f.bin)){
-  if(length(unique(surv.f.bin[,i])) > 1){
-    x <- survdiff(Surv(surv.f.bin[,1], surv.f.bin[,2], type = "right") ~ surv.f.bin[,i], data = surv.f.bin)
-    p_value <- 1 - pchisq(x$chisq, length(x$n) - 1)
-    os.pvals <- c(os.pvals, p_value)
-  }
-}
 
-OS.f.table <- data.frame(Variable = colnames(surv.f.bin)[3:ncol(surv.f.bin)], Phylum=c(surv.f.list$phyla,NA) , 
-                         OS_p.value = as.numeric(os.pvals), 
-                         OS_BH.adj = p.adjust(as.numeric(os.pvals), method = "fdr"))
 
 ### Figure S3B
 fit<- survfit(Surv(DFS_months, DFS_1_relapse_or_death, type = "right") ~ s__albicans.ASV.4, data = surv.f.bin)
 ggsurvplot(fit, pval = TRUE, conf.int = TRUE, risk.table = TRUE, palette = c("red", "blue"))
 dim(surv.f.bin)
 
+
+
 #gvhd-free,rfs
 surv.f.list <- binary_taxa_surv(ps.f.start, agglom = "Species", read_depth = 10000, prev = 0.9, surv_cols = c("GVHD_free_relapse_free_time", "GVHD_free_relapse_free_survival"))
 surv.f.bin <- surv.f.list$otus
 
-os.pvals <- c()
-for(i in 3:ncol(surv.f.bin)){
-  if(length(unique(surv.f.bin[,i])) > 1){
-    x <- survdiff(Surv(surv.f.bin[,1], surv.f.bin[,2], type = "right") ~ surv.f.bin[,i], data = surv.f.bin)
-    p_value <- 1 - pchisq(x$chisq, length(x$n) - 1)
-    os.pvals <- c(os.pvals, p_value)
-  }
-}
-
-OS.f.table <- data.frame(Variable = colnames(surv.f.bin)[3:ncol(surv.f.bin)], Phylum=c(surv.f.list$phyla,NA) , 
-                         OS_p.value = as.numeric(os.pvals), 
-                         OS_BH.adj = p.adjust(as.numeric(os.pvals), method = "fdr"))
 
 ### Figure S3C
 fit<- survfit(Surv(round(GVHD_free_relapse_free_time/30.436875,1), GVHD_free_relapse_free_survival, type = "right") ~ s__albicans.ASV.4, data = surv.f.bin)
@@ -457,6 +423,7 @@ OS.b.table <- data.frame(Variable = colnames(surv.b.bin)[3:ncol(surv.b.bin)], Ph
                          OS_p.value = as.numeric(os.pvals), 
                          OS_BH.adj = p.adjust(as.numeric(os.pvals), method = "fdr"))
 
+#reduce fdr p-value to 0.1 due to large number of genera
 OS.b.table[OS.b.table$OS_BH.adj < 0.1 & OS.b.table$OS_p.value < 0.05,]
 
 
@@ -489,20 +456,20 @@ ggsurvplot(fit, pval = TRUE, conf.int = TRUE, risk.table = TRUE, palette = c("re
 surv.b.list <- binary_taxa_surv(ps.b.start, agglom = "Genus", read_depth = 200, prev = 0.9, surv_cols = c("DFS_months", "DFS_1_relapse_or_death"))
 surv.b.bin <- surv.b.list$otus
 
-os.pvals <- c()
+DFS.pvals <- c()
 for(i in 3:ncol(surv.b.bin)){
   if(length(unique(surv.b.bin[,i])) > 1){
     x <- survdiff(Surv(surv.b.bin[,1], surv.b.bin[,2], type = "right") ~ surv.b.bin[,i], data = surv.b.bin)
     p_value <- 1 - pchisq(x$chisq, length(x$n) - 1)
-    os.pvals <- c(os.pvals, p_value)
+    DFS.pvals <- c(DFS.pvals, p_value)
   }
 }
 
-OS.b.table <- data.frame(Variable = colnames(surv.b.bin)[3:ncol(surv.b.bin)], Phylum=c(surv.b.list$phyla,NA) , 
-                         OS_p.value = as.numeric(os.pvals), 
-                         OS_BH.adj = p.adjust(as.numeric(os.pvals), method = "fdr"))
+DFS.b.table <- data.frame(Variable = colnames(surv.b.bin)[3:ncol(surv.b.bin)], Phylum=c(surv.b.list$phyla,NA) , 
+                         DFS_p.value = as.numeric(DFS.pvals), 
+                         DFS_BH.adj = p.adjust(as.numeric(DFS.pvals), method = "fdr"))
 
-OS.b.table[OS.b.table$OS_BH.adj < 0.2 & OS.b.table$OS_p.value < 0.05,]
+DFS.b.table[DFS.b.table$DFS_BH.adj < 0.1 & DFS.b.table$DFS_p.value < 0.05,]
 
 
 ### Figure S2D
@@ -512,24 +479,24 @@ ggsurvplot(fit, pval = TRUE, conf.int = TRUE, risk.table = TRUE, palette = c("re
 
 
 
-#GVHD-free, DFS
+#GVHD-free, RFS
 surv.b.list <- binary_taxa_surv(ps.b.start, agglom = "Genus", read_depth = 200, prev = 0.9, surv_cols = c("GVHD_free_relapse_free_time", "GVHD_free_relapse_free_survival"))
 surv.b.bin <- surv.b.list$otus
 
-os.pvals <- c()
+GRFS.pvals <- c()
 for(i in 3:ncol(surv.b.bin)){
   if(length(unique(surv.b.bin[,i])) > 1){
     x <- survdiff(Surv(surv.b.bin[,1], surv.b.bin[,2], type = "right") ~ surv.b.bin[,i], data = surv.b.bin)
     p_value <- 1 - pchisq(x$chisq, length(x$n) - 1)
-    os.pvals <- c(os.pvals, p_value)
+    GRFS.pvals <- c(GRFS.pvals, p_value)
   }
 }
 
-OS.b.table <- data.frame(Variable = colnames(surv.b.bin)[3:ncol(surv.b.bin)], Phylum=c(surv.b.list$phyla,NA) , 
-                         OS_p.value = as.numeric(os.pvals), 
-                         OS_BH.adj = p.adjust(as.numeric(os.pvals), method = "fdr"))
+GRFS.b.table <- data.frame(Variable = colnames(surv.b.bin)[3:ncol(surv.b.bin)], Phylum=c(surv.b.list$phyla,NA) , 
+                         GRFS_p.value = as.numeric(GRFS.pvals), 
+                         GRFS_BH.adj = p.adjust(as.numeric(GRFS.pvals), method = "fdr"))
 
-OS.b.table[OS.b.table$OS_BH.adj < 0.1 & OS.b.table$OS_p.value < 0.05,]
+GRFS.b.table[GRFS.b.table$GRFS_BH.adj < 0.1 & GRFS.b.table$GRFS_p.value < 0.05,]
 
 ###Shannon diversity not significant on testing
 
